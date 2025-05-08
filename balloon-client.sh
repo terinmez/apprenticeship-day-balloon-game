@@ -214,6 +214,23 @@ if [ "$SHOULD_CONTINUE_LOOP" = false ]; then
     exit 1
 fi
 
+
+# ==== You have 4 commands that you need to figure out where to place below 
+#   
+
+#    
+#
+#    handle_successful_put
+#
+#    handle_rate_limit
+#
+#    make_put_request "$NEXT_FILL_STATUS" "$CURRENT_ETAG_VALUE" 
+#
+#    handle_precondition_failed
+#    
+#    NEXT_FILL_STATUS=$((CURRENT_FILL_STATUS + 1))
+# 
+
 # === THE MAIN LOOP ===
 while [ "$SHOULD_CONTINUE_LOOP" = true ]; do
 
@@ -224,10 +241,7 @@ while [ "$SHOULD_CONTINUE_LOOP" = true ]; do
         break 
     fi
 
-    NEXT_FILL_STATUS=$((CURRENT_FILL_STATUS + 1))
-    
-    make_put_request "$NEXT_FILL_STATUS" "$CURRENT_ETAG_VALUE" 
-    
+
     post_put_elapsed_str=$(get_formatted_elapsed_time)
     echo "PUT Response Status: ${HTTP_STATUS_CODE}"
     echo "Response Body:"
@@ -238,15 +252,17 @@ while [ "$SHOULD_CONTINUE_LOOP" = true ]; do
     fi
     echo ""
 
+
+
     case "$HTTP_STATUS_CODE" in
         "200") 
-            handle_successful_put
+
             ;;
         "429")
-            handle_rate_limit
+
             ;;
         "412")
-            handle_precondition_failed
+
             ;;
         *)
             if [ -z "$HTTP_STATUS_CODE" ]; then
