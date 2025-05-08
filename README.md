@@ -1,13 +1,14 @@
-# A Simple Game to Illustrate the Need for ETags
+# A Simple Balloon Popping Game to Illustrate the Need for ETags
 
-This Cloudflare Worker Service offers an endpoint /balloon to read its current fill status between 0-100%. The Balloon will also deflate constantly with a rate of 1%/seconds.
+Under https://apprenticeship-day-balloon-game.tanju-cloudflare.workers.dev/balloonpage there is a red balloon shown. Middle school students need to send PUT requests to the Cloudflare Worker Service that provides an https://apprenticeship-day-balloon-game.tanju-cloudflare.workers.dev/balloon endpoint in order to increase the fillStatus by 1%. GET requests return the balloon’s current fill level, ranging from 0% to 100%.
 
-Middleschool Students need to do a PUT on /adobe/ increase the fill by 1. In order to be successful they need to use the current ETag. In addition they need to honor the rate limit by implementing a meaningful retry interval. The server will alternate its rate limiting behavior, so they cannot just use a fix interval.
+Middle school students can send a PUT request to /balloon to increase the fill level by 1%. To do this successfully, they must include the correct ETag value in their request, ensuring they are working with the most recent state. Additionally, they must implement a meaningful retry mechanism to respect the server’s dynamic rate-limiting behavior, which alternates and cannot be bypassed with a fixed interval.
 
-A second endpoint /stats will provide a list with the most successful hits per Username 
-## Goals
+A second endpoint, /userStatistics, displays a leaderboard showing the most successful contributions per username.
 
-Middleschool Students shall get a feel for concurrency problems and how to avoid them. In this case the approach with ETag is demonstrated.
+Goals
+The goal of this exercise is to introduce middle school students to concurrency challenges and demonstrate how to manage them using ETag-based control.
+
 
 1. Sign up for [Cloudflare Workers](https://workers.dev). The free tier is more than enough for most use cases.
 2. Clone this project and install dependencies with `npm install`
