@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balloon Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap'); /* Import Roboto font */
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            overflow: hidden; /* Hide scrollbars if burst animation makes page too big */
+            font-family: 'Roboto', sans-serif; /* Apply Roboto to the whole page */
+        }
+
+        #balloon-container {
+            position: relative;
+            /* display: flex; flex-direction: column; align-items: center; are key for layout */
+            display: flex;
+            flex-direction: column;
+            align-items: center; 
+            /* No explicit width/height here, will be sized by content */
+            /* Removed transition from here */
+        }
+
+        #fill-status-text {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            z-index: 10;
+            position: relative;
+            text-align: center; /* Ensure text within this div is centered */
+        }
+
+        #balloon {
+            /* width and height will be set by JS */
+            background-color: red;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            position: relative;
+            cursor: pointer;
+            box-shadow: inset -10px -10px 0 rgba(0,0,0,0.07);
+            transition: width 0.5s ease-out, height 0.5s ease-out; /* Transition moved here */
+        }
+
+        /* Tie at the bottom of the balloon */
+        #balloon::after {
+            content: "";
+            position: absolute;
+            width: 10px;
+            height: 20px;
+            background-color: red;
+            border-radius: 0 0 5px 5px;
+            bottom: -10px; /* Adjust to position the tie correctly */
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: inset -2px -2px 0 rgba(0,0,0,0.1);
+        }
+
+        .burst {
+            animation: burst-animation 0.5s forwards;
+        }
+
+        @keyframes burst-animation {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+        /* Optional: some confetti/particles for the burst */
+        .particle {
+            position: absolute;
+            background-color: red;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            opacity: 0;
+        }
+
+        #congrats-message {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 60%; /* Adjusted position slightly lower */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.2em; /* Relative font size */
+            font-weight: bold;
+            color: #28a745; /* Bootstrap success green */
+            background-color: rgba(255, 255, 255, 0.95); /* Slightly more opaque white background */
+            padding: 25px 50px;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.25);
+            text-align: center;
+            z-index: 1000; /* Ensure it's on top of everything */
+            animation: fadeInCongrats 0.6s cubic-bezier(0.250, 0.460, 0.450, 0.940) both; /* Smoother fade-in */
+        }
+
+        @keyframes fadeInCongrats {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        #sparkle-container {
+            position: fixed; /* Cover the whole screen */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* So it doesn't interfere with clicks */
+            z-index: 900; /* Below congrats message, above most other things */
+            overflow: hidden; /* Prevent scrollbars if sparkles go off-edge briefly */
+        }
+
+        .sparkle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: gold;
+            border-radius: 50%;
+            opacity: 0;
+            animation: sparkle-animation 1.5s ease-out forwards;
+        }
+
+        @keyframes sparkle-animation {
+            0% {
+                opacity: 0;
+                transform: translateY(0) scale(0.5);
+            }
+            20% {
+                opacity: 1;
+                transform: translateY(-20px) scale(1); /* Slight upward movement */
+            }
+            80% {
+                opacity: 1;
+                transform: translateY(-40px) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-60px) scale(0.5); /* Continue upward and fade */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="sparkle-container"></div> <!-- Container for fireworks/sparkles -->
+    <div id="balloon-container">
+        <div id="fill-status-text">0%</div>
+        <div id="balloon"></div>
+        <!-- Particles for burst effect will be added here by JS -->
+    </div>
+    <audio id="popSound" src="https://www.soundjay.com/mechanical/sounds/explosion-01.mp3" preload="auto"></audio>
+    <div id="congrats-message">Congratulations, you made it!</div>
+
+    <script>
+        const balloon = document.getElementById('balloon');
+        const balloonContainer = document.getElementById('balloon-container');
+        const fillStatusText = document.getElementById('fill-status-text');
+        const popSound = document.getElementById('popSound');
+        const congratsMessage = document.getElementById('congrats-message');
+        const sparkleContainer = document.getElementById('sparkle-container'); // Get sparkle container
+        const apiUrl = 'https://apprenticeship-day-balloon-game.tanju-cloudflare.workers.dev/balloon';
+
+        let currentFillStatus = 0;
+        let hasBurst = false;
+        let fireworksInterval = null; // To store the interval ID for fireworks
+        let fireworksTimeout = null; // To store the timeout ID for stopping fireworks
+
+        function createSparkle() {
+            const sparkle = document.createElement('div');
+            sparkle.classList.add('sparkle');
+            
+            // Position randomly across the screen width, and mostly top half for launch effect
+            sparkle.style.left = `${Math.random() * 100}vw`;
+            sparkle.style.top = `${Math.random() * 70}vh`; // Appear in upper 70% of viewport height
+            
+            sparkleContainer.appendChild(sparkle);
+            
+            // Remove sparkle after animation (1.5s)
+            setTimeout(() => {
+                sparkle.remove();
+            }, 1500);
+        }
+
+        function triggerFireworks() {
+            if (fireworksInterval) clearInterval(fireworksInterval); // Clear existing interval if any
+            if (fireworksTimeout) clearTimeout(fireworksTimeout); // Clear existing timeout
+
+            const fireworksDuration = 10000; // 10 seconds
+            const sparkleFrequency = 100; // Create a sparkle every 100ms
+
+            fireworksInterval = setInterval(createSparkle, sparkleFrequency);
+
+            fireworksTimeout = setTimeout(() => {
+                clearInterval(fireworksInterval);
+                fireworksInterval = null; // Reset interval ID
+                // Optionally clear remaining sparkles, though they auto-remove
+                // sparkleContainer.innerHTML = ''; 
+            }, fireworksDuration);
+        }
+
+        function stopFireworks() {
+            if (fireworksInterval) {
+                clearInterval(fireworksInterval);
+                fireworksInterval = null;
+            }
+            if (fireworksTimeout) {
+                clearTimeout(fireworksTimeout);
+                fireworksTimeout = null;
+            }
+            // sparkleContainer.innerHTML = ''; // Clear any visible sparkles immediately
+        }
+
+        function updateBalloonAppearance(fillStatus) {
+            if (hasBurst && currentFillStatus >=100) { 
+                congratsMessage.style.display = 'block';
+                fillStatusText.style.display = 'none';
+                // Fireworks should already be running or have finished
+                return;
+            }
+            if (hasBurst && currentFillStatus < 100) { 
+                 hasBurst = false; 
+                 stopFireworks(); // Stop fireworks if game resets
+            }
+
+            currentFillStatus = fillStatus;
+            fillStatusText.textContent = `${fillStatus}%`;
+
+            const minWidth = 50; 
+            const minHeight = 70;
+            const maxWidth = 300;
+            const maxHeight = 420;
+
+            if (fillStatus === 0) {
+                balloon.style.width = `${minWidth}px`;
+                balloon.style.height = `${minHeight}px`;
+                balloon.classList.remove('burst');
+                congratsMessage.style.display = 'none';
+                fillStatusText.style.display = 'block';
+                stopFireworks(); // Stop fireworks if status goes to 0
+            } else if (fillStatus >= 100) {
+                if (!balloon.classList.contains('burst')) {
+                    console.log("Bursting!");
+                    balloon.style.width = `${maxWidth}px`;
+                    balloon.style.height = `${maxHeight}px`;
+                    balloon.classList.add('burst');
+                    popSound.play().catch(e => console.error("Error playing sound:", e));
+                    createParticles(); // Your existing confetti particles
+                    hasBurst = true; 
+                    congratsMessage.style.display = 'block';
+                    fillStatusText.style.display = 'none';
+                    triggerFireworks(); // Start the fireworks!
+                }
+            } else {
+                balloon.style.width = `${minWidth + (maxWidth - minWidth) * (fillStatus / 100)}px`;
+                balloon.style.height = `${minHeight + (maxHeight - minHeight) * (fillStatus / 100)}px`;
+                balloon.classList.remove('burst');
+                congratsMessage.style.display = 'none';
+                fillStatusText.style.display = 'block';
+                stopFireworks(); // Stop fireworks if status is below 100 but not 0
+            }
+        }
+
+        function createParticles() {
+            const numParticles = 30;
+            for (let i = 0; i < numParticles; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                const x = (Math.random() - 0.5) * 400; // Spread particles horizontally
+                const y = (Math.random() - 0.5) * 400; // Spread particles vertically
+                const duration = Math.random() * 1 + 0.5; // Random animation duration
+
+                particle.style.setProperty('--x', `${x}px`);
+                particle.style.setProperty('--y', `${y}px`);
+                
+                particle.style.transform = `translate(${x}px, ${y}px) scale(0)`; // Start small and at final pos
+                particle.style.opacity = 1; // Make visible for animation
+
+                // Animate particle
+                particle.animate([
+                    { transform: `translate(0, 0) scale(1)`, opacity: 1 }, // Initial state for animation
+                    { transform: `translate(${x}px, ${y}px) scale(0)`, opacity: 0 } // End state
+                ], {
+                    duration: duration * 1000,
+                    easing: 'ease-out',
+                    fill: 'forwards'
+                });
+
+                balloonContainer.appendChild(particle);
+                // Remove particle after animation
+                setTimeout(() => particle.remove(), duration * 1000);
+            }
+        }
+
+        async function fetchBalloonStatus() {
+            if (hasBurst && currentFillStatus >= 100) {
+                 // If burst and status is still 100, don't re-fetch indefinitely,
+                 // unless you have a mechanism to reset the balloon state on the server.
+                 // For now, we'll just stop polling if burst.
+                 // If you want it to reset and re-inflate, remove this check or parts of it.
+                console.log("Balloon has burst, polling stopped.");
+                return;
+            }
+            
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    console.error('Failed to fetch balloon status:', response.status, response.statusText);
+                    // Optionally, handle specific error codes, e.g., 404, 500
+                    // updateBalloonAppearance(0); // Reset to uninflated on error?
+                    return;
+                }
+                const data = await response.json();
+                if (data && typeof data.fillStatus === 'number') {
+                    updateBalloonAppearance(data.fillStatus);
+                } else {
+                    console.error('Invalid data format received:', data);
+                }
+            } catch (error) {
+                console.error('Error fetching balloon status:', error);
+                // updateBalloonAppearance(0); // Reset to uninflated on network error?
+            }
+        }
+        
+        // Function to reset the balloon (example)
+        // function resetBalloon() {
+        //     hasBurst = false;
+        //     currentFillStatus = 0;
+        //     balloon.classList.remove('burst');
+        //     updateBalloonAppearance(0);
+        //     // Start polling again if it was stopped
+        //     // if (pollingInterval === null) {
+        //     //     startPolling();
+        //     // }
+        // }
+
+        // Start polling every second
+        // let pollingInterval = setInterval(fetchBalloonStatus, 1000);
+        
+        // Alternative to ensure it runs once immediately then intervals
+        fetchBalloonStatus(); 
+        setInterval(fetchBalloonStatus, 1000);
+
+        // Example: click to inflate (for testing without backend)
+        // let testFill = 0;
+        // balloon.addEventListener('click', () => {
+        //   if (hasBurst) {
+        //      resetBalloon();
+        //      testFill = 0;
+        //   }
+        //   testFill = (testFill + 10) % 110;
+        //   updateBalloonAppearance(testFill);
+        // });
+
+    </script>
+</body>
+</html> 

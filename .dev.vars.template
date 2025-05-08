@@ -1,0 +1,2 @@
+WORKER_ENV=local
+AUTH_TOKEN=<set the key>

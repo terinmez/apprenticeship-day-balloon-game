@@ -1,0 +1,26 @@
+{
+	"name": "apprenticeship-day-balloon-game-api",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"cf-typegen": "wrangler types"
+	},
+	"dependencies": {
+		"chanfana": "^2.0.2",
+		"hast-util-format": "^1.1.0",
+		"hast-util-from-html": "^2.0.3",
+		"hast-util-to-html": "^9.0.5",
+		"hastscript": "^9.0.1",
+		"hono": "^4.4.7",
+		"zod": "^3.23.8"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20250407.0",
+		"@types/node": "22.14.1",
+		"@types/service-worker-mock": "^2.0.1",
+		"wrangler": "^4.14.3"
+	}
+}
